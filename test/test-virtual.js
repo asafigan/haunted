@@ -252,6 +252,92 @@ describe('virtual()', () => {
     assert.equal(values2.length, 2, 'Second component state only had 2 values');
   });
 
+  it('Multiple virtual components will not affect each other case 2', async () => {
+    let el = document.createElement('div');
+
+    let toggleCounter1;
+    let toggleCounter2;
+    const Main = () => {
+      const [show, toggle] = useState(true);
+      const [show2, toggle2] = useState(true);
+
+      toggleCounter1 = toggle;
+      toggleCounter2 = toggle2;
+
+      return html`
+        <button @click="${() => toggle(!show)}">${show ? "Hide" : "Show"}</button>
+        ${show ? virtual(Counter1)() : undefined}
+
+        <br /><br />
+
+        <button @click="${() => toggle2(!show2)}">
+          ${show2 ? "Hide" : "Show"}
+        </button>
+        ${show2 ? virtual(Counter2)() : undefined}
+      `;
+    };
+
+    let set1;
+    let values1 = [];
+    const Counter1 = () => {
+      useEffect(() => {
+        console.log("connected component");
+        return () => {
+          console.log("disconnected component");
+        };
+      }, []);
+      const [count, setCount] = useState(0);
+      set1 = setCount;
+      values1.push(count);
+
+      return html`
+        <button type="button" @click="${() => setCount(count + 1)}">
+          Count: ${count}
+        </button>
+      `;
+    };
+
+    let set2;
+    let values2 = [];
+    const Counter2 = () => {
+      useEffect(() => {
+        console.log("connected component");
+        return () => {
+          console.log("disconnected component");
+        };
+      }, []);
+      const [count, setCount] = useState(0);
+      set2 = setCount;
+      values2.push(count);
+
+      return html`
+        <button type="button" @click="${() => setCount(count + 1)}">
+          Count: ${count}
+        </button>
+      `;
+    };
+
+    render(virtual(Main)(), el);
+
+    await cycle();
+
+    toggleCounter1(false);
+    await cycle();
+
+    set2(1);
+    await cycle();
+
+    toggleCounter2(false);
+    await cycle();
+
+    toggleCounter2(true);
+    await cycle();
+
+    assert.equal(values2[0], 0, 'Second component first state');
+    assert.equal(values2[1], 1, 'Second component second state');
+    assert.equal(values2[2], 0, 'Second component third state');
+  });
+
   it('Teardown is invoked through indirection', async () => {
     const tag = 'app-with-virtual-teardown-indirection';
     let teardownCalled = 0;
